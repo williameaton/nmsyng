@@ -1,2 +1,0 @@
- gather operation failed for source
- Error detected, aborting MPI... proc            0
