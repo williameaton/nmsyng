@@ -1,11 +1,13 @@
 Originally Developed by: Jeroen Tromp
-Modified by:
-Qinya  lqy@gps.caltech.edu
-03/21/02
-Hom Nath Gharti
 
-xnmsyn calculates a normal mode synthetics using normal mode
-summation for given CMTSOLUTION and STATIONS files.
+Modified by:
+03/21/02:  Qinya Liu (liuqy@physics.utoronto.ca)
+02/11/22:  Hom Nath Gharti (hng1@queensu.ca)
+05/20/24:  Will Eaton (weaton@princeton.edu)
+
+xnmsyn calculates a normal mode synthetics using normal mode summation for given CMTSOLUTION and STATIONS files. 
+It relies on binary databases of modes computed using [MINEOS](https://github.com/geodynamics/mineos)
+For editors of the code, it is recommended to use Dahlen and Tromp (1998) as a reference for equations used. 
 
 1. INPUT PARAMTERS:
 
