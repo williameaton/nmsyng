@@ -4,3 +4,8 @@ SYNT*/
 *.bak
 xnmsyn*
 *.mod
+*CMT* 
+*.bin
+database/*
+*input/*STATIONS*
+output/*.nmsyn 

@@ -55,3 +55,44 @@ do i=3,mp1
 return
 end subroutine plm
 !=================================================================
+
+
+subroutine plm_deriv(d2p, l, p, cost, sint)
+! Added by WE 20/05/24. Computes the second derivative of the Plm with respect to theta (not cos theta)
+! This is required for computing the gravity strain tensor 
+! Value is outputted in d2p, which holds d^2 Plm/ d\theta^2 for m=0,1,2
+implicit none 
+! Input:
+integer :: l, m
+double precision sint,cost,p(3),dp(3), ell, pm1
+! Output: 
+double precision d2p(3), dpdmu
+
+ell = dble(l)
+
+! use DT98 B.55 line 2 to compute dp/dmu
+
+! m =0  
+
+! in this case we would need p_l,m=-1 but we dont have that... 
+! need to compute using m=1: 
+! DT98 B.56: 
+
+
+pm1 = -1.0d0 * dble(gamma(ell))/dble(gamma(ell+2.0d0)) * p(2)
+dpdmu = - (1/(sint*sint))* ell*(ell+1.0d0)*sint*pm1 
+d2p(1) = cost*dpdmu  - (ell**2  +ell )*p(1)
+
+
+
+! m =1  
+dpdmu = (1/(sint*sint))*( cost*p(2) - (ell + 1.0d0)*ell*sint*p(1))
+d2p(2) = cost*dpdmu  - (ell**2  +ell - (1.0d0/sint)**2 )*p(2)
+
+!m = 2 
+dpdmu = (1/(sint*sint))*( 2.0d0*cost*p(3) - (ell + 2.0d0)*(ell - 1.0d0)*sint*p(2))
+d2p(3) = cost*dpdmu  - (ell**2  +ell - (2.0d0/sint)**2 )*p(3)
+
+
+return 
+end subroutine plm_deriv

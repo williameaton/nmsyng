@@ -3,8 +3,9 @@
 !
       integer,parameter :: LMAX=1700
 ! NCOMP: number of seimogram components, e.g., 4 for including gravity
-      integer,parameter :: NCOMP=6
+      integer,parameter :: NCOMP=11
 !
+      logical, parameter :: grav_inside=.true.
 !       NTMAX: maximum number of samples in the time series
 !
       integer,parameter :: NTMAX=10000

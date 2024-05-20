@@ -25,12 +25,12 @@ program spherical
   double precision delta,aze,azr
   double precision k,fac,facp, ellp1, ell, ell2p1
   double precision a0,a1,a2,b1,b2
-  double precision a,dadt,dadp
+  double precision a,dadt,dadp, da2dt2, da2dtdp, da2dp2,pdot, pddot, facstrain
   double precision amp(NCOMP)
   double precision t0,ts,dt,hdur,reclen
   double precision theta,phi
   double precision om,q,av,ah,ap
-  double precision sint,cost,p(3),dp(3)
+  double precision sint,cost,p(3),dp(3), d2p(3)
   double precision sinp,cosp,sin2p,cos2p
   double precision T_min,T_max,om_min,om_max
   double precision,allocatable :: seismogram(:,:)
@@ -298,12 +298,31 @@ program spherical
         if(om.ge.om_min.and.om.le.om_max) then
           if(l.ne.lprev) then
             call plm(l,cost,sint,p,dp)
+            call plm_deriv(d2p, l, p, cost, sint)
             k=dsqrt(dble(l*(l+1)))
             fac=dble(2*l+1)/(4.0d0*PI)
             facp=fac*RA*PI*GRAV*RHOAV
+            facstrain = facp/(1.0d0*RA*RA) ! 1 in denom comes from the 1/r common to all (but nondim)
             lprev=l
           endif
   
+          !write(*,*) '----------------------------------'
+          !write(*,*)'l =  ', l 
+          !write(*,*)'cost ', cost
+          !write(*,*) 
+          !write(*,*)'pl0  ', p(1)
+          !write(*,*)'dpl0  ', dp(1)
+          !write(*,*)'ddpl1  ', d2p(1)
+
+          !write(*,*)
+          !write(*,*)'pl1  ', p(2)
+          !write(*,*)'dpl1  ', dp(2)
+          !write(*,*)'ddpl1  ', d2p(2)
+          !write(*,*)
+          !write(*,*)'pl2    ', p(3)
+          !write(*,*)'dpl2   ', dp(3)
+          !write(*,*)'ddpl2  ', d2p(3)
+          !write(*,*) 
   
   !       get u, du, v, and dv at the source radius rs
   !
@@ -331,23 +350,60 @@ program spherical
           a=p(1)*a0+p(2)*(a1*cosp+b1*sinp)+p(3)*(a2*cos2p+b2*sin2p)
           dadt=dp(1)*a0+dp(2)*(a1*cosp+b1*sinp)+dp(3)*(a2*cos2p+b2*sin2p)
           dadp=p(2)*(-a1*sinp+b1*cosp)+2.0d0*p(3)*(-a2*sin2p+b2*cos2p)
-  !
+  
+          ! some further derivatives: 
+          da2dp2 = - p(2)*(a1*cosp+b1*sinp) - 4.0d0*p(3)*(a2*cos2p + b2*sin2p)
+          da2dt2=d2p(1)*a0+d2p(2)*(a1*cosp+b1*sinp)+d2p(3)*(a2*cos2p+b2*sin2p)
+          da2dtdp=dp(2)*(-a1*sinp+b1*cosp)+2.0d0*dp(3)*(-a2*sin2p+b2*cos2p)
+
   !       vertical, longitudinal, and transverse components
-  !
           amp(1)=fac*av*a           !vertical
           amp(2)=fac*ah*dadt        !longitudinal
           amp(3)=fac*ah*dadp/sint   !transverse
           amp(4)=facp*ap*a          !gravity potential
           
-          amp(5) = - facp*a*dble(l+1.0d0)*ap / RA
-          
+          ! Some combinations of ell 
           ell    = dble(l)
           ellp1  = dble(l + 1.0d0)
           ell2p1 = ell + ellp1
+
+          ! Pdot outside of Earth 
+          pdot = -ellp1*ap
+
+          ! Add contribution of gravity for inside Earth 
+          if(grav_inside)then
+            pdot = pdot - 4.0d0*(rho/RHOAV)*u(NR)
+
+
+          ! Note this assumes we have a station on the surface and that the density gradient here is 0.
+            pddot = ell*ellp1*ap + ellp1*ap  + 4.0d0*(rho*u(NR)/RHOAV) & 
+                    - (4.0d0/ell2p1)*(rho/RHOAV) *                     & 
+                    ( ell2p1*du(NR) + u(NR)*(1.0d0 - 2.0d0*ell*ell) - k*v(NR) )
+          else
+            pddot = ell*ellp1*ap
+          endif 
+
+          ! Vertical gravitational acceleration 
+          amp(5) =  facp*a* pdot/ RA
           
-          amp(6) =  (ell*ellp1*ap + ellp1*ap  + 4.0d0*(rho*u(NR)/RHOAV) & 
-                    - (4.0d0/ell2p1)*(rho/RHOAV) * ( ell2p1*du(NR) + u(NR)*(1.0d0 - 2.0d0*ell*ell) - k*v(NR) )) & 
-                    * facp*a/(RA*RA)
+          ! Strain component H rad rad (H11)
+          amp(6) = pddot*a  * facstrain
+
+          ! Strain component H theta theta (H22)
+          amp(7) =  (pdot*a +ap*da2dt2/1.0d0) * facstrain
+
+          ! Strain component H phi phi (H33)
+          amp(8) =  (pdot*a + ap*cost*dadt/(1.0d0*sint) + ap*da2dp2/(1.0d0*sint*sint)) * facstrain
+
+          ! Strain component H rad theta (H12)
+          amp(9) = (pdot - ap/1.0d0)*dadt  * facstrain
+
+          ! Strain component H rad phi (H13)
+          amp(10) = (pdot - ap/1.0d0)*dadp/sint  * facstrain
+
+          ! Strain component H theta phi (H23)
+          amp(11) =  ap*(da2dtdp - cost*dadp/sint)  * facstrain
+
   
           call time_series(ns,ts,nps,dt,om,q,hdur,amp,seismogram) 
   !
@@ -361,6 +417,8 @@ program spherical
   !
     read(1,*,iostat=ios) stn,ntw,rlat,rlon,stele,stbur
     nstation = nstation + 1
+
+
   enddo
   close(unit=1)
   deallocate(seismogram)
